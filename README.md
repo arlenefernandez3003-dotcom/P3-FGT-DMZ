@@ -68,9 +68,9 @@ Esta práctica segmenta una red con un **FortiGate (v7.0.3)** y un **switch**, y
                     │           FortiGate           │
                     │ port1 (WAN)  202.50.73.254/24 │
                     │ port2 (trunk, sub-interfaces) │
-                    │  ├ VLAN10  10.7.30.1/26       │
-                    │  ├ VLAN20  10.7.30.65/26      │
-                    │  └ VLAN30  10.7.30.129/28 DMZ │
+                    │  ├ VLAN10  10.7.30.62/26      │
+                    │  ├ VLAN20  10.7.30.126/26     │
+                    │  └ VLAN30  10.7.30.142/28 DMZ │
                     └───────────────┬───────────────┘
                                     │ trunk 802.1Q · VLAN 10, 20, 30
                     ┌───────────────┴───────────────┐
@@ -99,18 +99,20 @@ Esta práctica segmenta una red con un **FortiGate (v7.0.3)** y un **switch**, y
 | Red | VLAN | Dirección | Gateway (FortiGate) | Uso |
 |---|---|---|---|---|
 | **ISP (pública)** | — | 202.50.73.0/24 | 202.50.73.2 (NAT de VMware) | WAN del FortiGate (`.1` es el adaptador VMnet8 de la PC) |
-| **Usuarios V10** | 10 | 10.7.30.0/26 | 10.7.30.1 | Usuario con acceso restringido |
-| **Usuarios V20** | 20 | 10.7.30.64/26 | 10.7.30.65 | Usuario con acceso SSH a servidores |
-| **DMZ (Servidores)** | 30 | 10.7.30.128/28 | 10.7.30.129 | Web Caja, Web Inventario, DB |
+| **Usuarios V10** | 10 | 10.7.30.0/26 | 10.7.30.62 | Usuario con acceso restringido |
+| **Usuarios V20** | 20 | 10.7.30.64/26 | 10.7.30.126 | Usuario con acceso SSH a servidores |
+| **DMZ (Servidores)** | 30 | 10.7.30.128/28 | 10.7.30.142 | Web Caja, Web Inventario, DB |
 
 **VLSM sobre `10.7.30.0/24`:** el bloque de Usuarios es un `/25` (`10.7.30.0/25`) que se divide en dos `/26`, una por VLAN. El bloque de Servidores es un `/28`.
 
-| Bloque | Requisito | Red | Rango de hosts | Broadcast |
-|---|---|---|---|---|
-| Usuarios VLAN 10 | `/26` (dentro del `/25`) | 10.7.30.0/26 | .1 – .62 | .63 |
-| Usuarios VLAN 20 | `/26` (dentro del `/25`) | 10.7.30.64/26 | .65 – .126 | .127 |
-| Servidores (DMZ) | `/28` | 10.7.30.128/28 | .129 – .142 | .143 |
-| Libre | — | 10.7.30.144 – .255 | — | — |
+| Bloque | Requisito | Red | Hosts utilizables | Gateway (FortiGate) | Broadcast |
+|---|---|---|---|---|---|
+| Usuarios VLAN 10 | `/26` (dentro del `/25`) | 10.7.30.0/26 | .1 – .62 | 10.7.30.62 | .63 |
+| Usuarios VLAN 20 | `/26` (dentro del `/25`) | 10.7.30.64/26 | .65 – .126 | 10.7.30.126 | .127 |
+| Servidores (DMZ) | `/28` | 10.7.30.128/28 | .129 – .142 | 10.7.30.142 | .143 |
+| Libre | — | 10.7.30.144 – .255 | — | — | — |
+
+> **No se asigna la primera IP de ninguna red:** el gateway de cada VLAN usa la **última IP utilizable**, y los dispositivos usan las demás. En la red pública, `.1` es el adaptador VMnet8 de la PC, `.2` el gateway NAT de VMware y el FortiGate usa `.254`.
 
 ### 2.3 Tabla de Interfaces
 
@@ -120,9 +122,9 @@ Esta práctica segmenta una red con un **FortiGate (v7.0.3)** y un **switch**, y
 |---|---|---|---|---|
 | **port1** | WAN-NUBE | WAN | 202.50.73.254 | /24 |
 | **port2** | TRUNK-SW | (físico, sin IP) | — | — |
-| **VLAN10** (port2, ID 10) | LAN-VLAN10 | LAN | 10.7.30.1 | /26 |
-| **VLAN20** (port2, ID 20) | LAN-VLAN20 | LAN | 10.7.30.65 | /26 |
-| **VLAN30** (port2, ID 30) | DMZ | DMZ | 10.7.30.129 | /28 |
+| **VLAN10** (port2, ID 10) | LAN-VLAN10 | LAN | 10.7.30.62 | /26 |
+| **VLAN20** (port2, ID 20) | LAN-VLAN20 | LAN | 10.7.30.126 | /26 |
+| **VLAN30** (port2, ID 30) | DMZ | DMZ | 10.7.30.142 | /28 |
 
 **SW-LAN (switch L2):**
 
@@ -143,11 +145,11 @@ Esta práctica segmenta una red con un **FortiGate (v7.0.3)** y un **switch**, y
 | **PC local** (adaptador VMnet8) | 202.50.73.1 | /24 | — | Automática (VMware) | Acceso a la GUI del FortiGate |
 | **ISP / NAT de VMware** | 202.50.73.2 | /24 | — | VMware | Gateway con salida a Internet |
 | **FortiGate** (port1) | 202.50.73.254 | /24 | 202.50.73.2 | Estática | Firewall perimetral |
-| **Usuario V10** | 10.7.30.10 – .60 (rango) | /26 | 10.7.30.1 | **DHCP** | Cliente VLAN 10 |
-| **Usuario V20** | 10.7.30.74 – .124 (rango) | /26 | 10.7.30.65 | **DHCP** | Cliente VLAN 20 |
-| **Web Sistema de Caja** | 10.7.30.130 | /28 | 10.7.30.129 | Estática | Servidor web |
-| **Web Sistema de Inventario** | 10.7.30.131 | /28 | 10.7.30.129 | Estática | Servidor web |
-| **DB Server** | 10.7.30.132 | /28 | 10.7.30.129 | Estática | Base de datos |
+| **Usuario V10** | 10.7.30.10 – .60 (rango) | /26 | 10.7.30.62 | **DHCP** | Cliente VLAN 10 |
+| **Usuario V20** | 10.7.30.74 – .124 (rango) | /26 | 10.7.30.126 | **DHCP** | Cliente VLAN 20 |
+| **Web Sistema de Caja** | 10.7.30.130 | /28 | 10.7.30.142 | Estática | Servidor web |
+| **Web Sistema de Inventario** | 10.7.30.131 | /28 | 10.7.30.142 | Estática | Servidor web |
+| **DB Server** | 10.7.30.132 | /28 | 10.7.30.142 | Estática | Base de datos |
 
 ### 2.5 Matriz de políticas
 
@@ -382,7 +384,7 @@ Todo por GUI en `https://202.50.73.254`. **Ruta:** `Network → Interfaces`
 | Interface | `port2` |
 | VLAN ID | `10` |
 | Role | `LAN` |
-| IP/Netmask | `10.7.30.1 / 255.255.255.192` |
+| IP/Netmask | `10.7.30.62 / 255.255.255.192` |
 | Administrative access | `Ping` |
 
 En la misma pantalla, **DHCP Server → Enable**:
@@ -405,7 +407,7 @@ En la misma pantalla, **DHCP Server → Enable**:
 | Interface | `port2` |
 | VLAN ID | `20` |
 | Role | `LAN` |
-| IP/Netmask | `10.7.30.65 / 255.255.255.192` |
+| IP/Netmask | `10.7.30.126 / 255.255.255.192` |
 | Administrative access | `Ping` |
 
 **DHCP Server → Enable:**
@@ -428,10 +430,16 @@ En la misma pantalla, **DHCP Server → Enable**:
 | Interface | `port2` |
 | VLAN ID | `30` |
 | Role | `DMZ` |
-| IP/Netmask | `10.7.30.129 / 255.255.255.240` |
+| IP/Netmask | `10.7.30.142 / 255.255.255.240` |
 | Administrative access | `Ping` |
 
 La DMZ no tiene DHCP (los servidores usan IP estática). Los servidores resuelven nombres a través del FortiGate, así que se habilita el servicio DNS en esta interfaz.
+
+En FortiOS 7.0 el menú `Network → DNS Servers` está oculto por defecto. Se muestra activando la función **DNS Database**:
+
+**Ruta:** `System → Feature Visibility → Additional Features → DNS Database → Enable → Apply`
+
+Después, crear el servicio DNS en la interfaz:
 
 **Ruta:** `Network → DNS Servers → DNS Service on Interface → Create New`
 
@@ -439,6 +447,8 @@ La DMZ no tiene DHCP (los servidores usan IP estática). Los servidores resuelve
 |---|---|
 | Interface | `VLAN30` |
 | Mode | `Recursive` |
+| DNS Filter | Desactivado |
+| DNS over HTTPS | Desactivado |
 
 > Ver evidencia: [03_interfaces_fortigate.png](screenshots/03_interfaces_fortigate.png), [04_vlan10_dhcp_fortigate.png](screenshots/04_vlan10_dhcp_fortigate.png), [05_vlan20_dhcp_fortigate.png](screenshots/05_vlan20_dhcp_fortigate.png), [06_vlan30_dmz_fortigate.png](screenshots/06_vlan30_dmz_fortigate.png)
 
@@ -499,8 +509,8 @@ Conectar cada Usuario a su puerto (V10 en `e0/1`, V20 en `e0/2`) y verificar:
 
 ```bash
 ip addr
-ping -c 3 10.7.30.1      # Usuario V10 (gateway VLAN 10)
-ping -c 3 10.7.30.65    # Usuario V20 (gateway VLAN 20)
+ping -c 3 10.7.30.62      # Usuario V10 (gateway VLAN 10)
+ping -c 3 10.7.30.126    # Usuario V20 (gateway VLAN 20)
 ```
 
 El Usuario V10 debe recibir una IP de `10.7.30.10 – .60` y el Usuario V20 una de `10.7.30.74 – .124`.
@@ -517,9 +527,9 @@ network:
       addresses: [10.7.30.130/28]
       routes:
         - to: default
-          via: 10.7.30.129
+          via: 10.7.30.142
       nameservers:
-        addresses: [10.7.30.129]
+        addresses: [10.7.30.142]
 ```
 
 | Servidor | Dirección en `addresses` |
@@ -530,7 +540,7 @@ network:
 
 ```bash
 sudo netplan apply
-ping -c 3 10.7.30.129
+ping -c 3 10.7.30.142
 ```
 
 > Ver evidencia: [08_ping_nube.png](screenshots/08_ping_nube.png), [09_usuarios_dhcp.png](screenshots/09_usuarios_dhcp.png), [10_servidores_red.png](screenshots/10_servidores_red.png)
@@ -773,7 +783,7 @@ curl -s http://10.7.30.131/ | grep -o '<title>.*</title>'   # Web Inventario: <t
 traceroute 10.7.30.130
 ping -c 3 10.7.30.10               # hacia la VLAN 10: debe fallar
 ```
-Los tres SSH deben conectar y el web del Inventario debe responder. El `traceroute` muestra al FortiGate (`10.7.30.65`) como primer salto.
+Los tres SSH deben conectar y el web del Inventario debe responder. El `traceroute` muestra al FortiGate (`10.7.30.126`) como primer salto.
 
 > Ver evidencia: [21_ssh_vlan20_exito.png](screenshots/21_ssh_vlan20_exito.png), [22_web_vlan20.png](screenshots/22_web_vlan20.png)
 
@@ -808,13 +818,13 @@ Numeradas en el orden en que se toman durante el procedimiento.
 | 01 | [`01_switch_vlan_seguridad.png`](screenshots/01_switch_vlan_seguridad.png) | 2 | SW-LAN: `show vlan brief`, `show interfaces trunk` y `show port-security`. |
 | 02 | [`02_cli_acceso_fortigate.png`](screenshots/02_cli_acceso_fortigate.png) | 3 | CLI del FortiGate con la config inicial de `port1` (202.50.73.254/24). |
 | 03 | [`03_interfaces_fortigate.png`](screenshots/03_interfaces_fortigate.png) | 4 | `Network → Interfaces`: port1, port2 y las sub-interfaces VLAN10, VLAN20 y VLAN30. |
-| 04 | [`04_vlan10_dhcp_fortigate.png`](screenshots/04_vlan10_dhcp_fortigate.png) | 4.2 | Sub-interfaz VLAN10 con IP `10.7.30.1/26` y su DHCP. |
-| 05 | [`05_vlan20_dhcp_fortigate.png`](screenshots/05_vlan20_dhcp_fortigate.png) | 4.3 | Sub-interfaz VLAN20 con IP `10.7.30.65/26` y su DHCP. |
-| 06 | [`06_vlan30_dmz_fortigate.png`](screenshots/06_vlan30_dmz_fortigate.png) | 4.4 | Sub-interfaz VLAN30 (DMZ) con IP `10.7.30.129/28` y el servicio DNS. |
+| 04 | [`04_vlan10_dhcp_fortigate.png`](screenshots/04_vlan10_dhcp_fortigate.png) | 4.2 | Sub-interfaz VLAN10 con IP `10.7.30.62/26` y su DHCP. |
+| 05 | [`05_vlan20_dhcp_fortigate.png`](screenshots/05_vlan20_dhcp_fortigate.png) | 4.3 | Sub-interfaz VLAN20 con IP `10.7.30.126/26` y su DHCP. |
+| 06 | [`06_vlan30_dmz_fortigate.png`](screenshots/06_vlan30_dmz_fortigate.png) | 4.4 | Sub-interfaz VLAN30 (DMZ) con IP `10.7.30.142/28` y el servicio DNS. |
 | 07 | [`07_dns_ruta_fortigate.png`](screenshots/07_dns_ruta_fortigate.png) | 5 | DNS y ruta por defecto hacia `202.50.73.2`. |
 | 08 | [`08_ping_nube.png`](screenshots/08_ping_nube.png) | 6.1 | Ping de la PC local al FortiGate y ping del FortiGate a `8.8.8.8`. |
 | 09 | [`09_usuarios_dhcp.png`](screenshots/09_usuarios_dhcp.png) | 6.2 | Usuarios V10 y V20 con IP por DHCP y ping a su gateway. |
-| 10 | [`10_servidores_red.png`](screenshots/10_servidores_red.png) | 6.3 | Servidores con IP estática y ping a `10.7.30.129`. |
+| 10 | [`10_servidores_red.png`](screenshots/10_servidores_red.png) | 6.3 | Servidores con IP estática y ping a `10.7.30.142`. |
 | 11 | [`11_endpoints_apt.png`](screenshots/11_endpoints_apt.png) | 7 | Hosts de los repositorios de actualización de un servidor. |
 | 12 | [`12_objetos_direcciones.png`](screenshots/12_objetos_direcciones.png) | 8 | Objetos y grupos de direcciones. |
 | 13 | [`13_webfilter_perfil.png`](screenshots/13_webfilter_perfil.png) | 9 | Perfil `Bloqueo-Inventario` con el URL Filter. |
