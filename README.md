@@ -1,4 +1,4 @@
-# FortiGate 7.6.2 — Segmentación con DMZ, VLANs y Políticas de Seguridad
+# FortiGate 7.0.3 — Segmentación con DMZ, VLANs y Políticas de Seguridad
 
 ### Arlene Fernández Herrera · Matrícula: 2025-0730
 
@@ -40,7 +40,7 @@
 
 ## 1. Objetivo del Laboratorio
 
-Esta práctica segmenta una red con un **FortiGate (v7.6.2)** y un **switch**, y aplica políticas de seguridad entre las zonas:
+Esta práctica segmenta una red con un **FortiGate (v7.0.3)** y un **switch**, y aplica políticas de seguridad entre las zonas:
 
 * Los **servidores** (Web Sistema de Caja, Web Sistema de Inventario y DB Server, red `/28`) están en una **DMZ**.
 * Las **políticas evitan fuga de tráfico desde la DMZ hacia la red LAN** (VLAN 10 y VLAN 20).
@@ -53,7 +53,7 @@ Esta práctica segmenta una red con un **FortiGate (v7.6.2)** y un **switch**, y
 
 ## 2. Topología y Direccionamiento
 
-> Las redes internas son **privadas** y salen todas de `10.7.30.0/24` (matrícula 0730), repartidas con **VLSM**. La red del ISP es **pública**: `202.50.73.0/29`.
+> Las redes internas son **privadas** y salen todas de `10.7.30.0/24` (matrícula 0730), repartidas con **VLSM**. La red del ISP es **pública**: `202.50.73.0/24` (NAT de VMware, VMnet8).
 
 ### 2.1 Diagrama de Topología
 
@@ -61,11 +61,12 @@ Esta práctica segmenta una red con un **FortiGate (v7.6.2)** y un **switch**, y
                       ┌───────────────────────────┐
    PC local ──────────┤   Nube PNET (ISP / Cloud) │
    202.50.73.1        │       202.50.73.0/24      │
+                      │    GW NAT: 202.50.73.2    │
                       └─────────────┬─────────────┘
                                     │
                     ┌───────────────┴───────────────┐
                     │           FortiGate           │
-                    │ port1 (WAN)  202.50.73.250/29 │
+                    │ port1 (WAN)  202.50.73.254/24 │
                     │ port2 (trunk, sub-interfaces) │
                     │  ├ VLAN10  10.7.30.1/26       │
                     │  ├ VLAN20  10.7.30.65/26      │
@@ -97,7 +98,7 @@ Esta práctica segmenta una red con un **FortiGate (v7.6.2)** y un **switch**, y
 
 | Red | VLAN | Dirección | Gateway (FortiGate) | Uso |
 |---|---|---|---|---|
-| **ISP (pública)** | — | 202.50.73.0/24 | 202.50.73.2 (ISP) | WAN del FortiGate |
+| **ISP (pública)** | — | 202.50.73.0/24 | 202.50.73.2 (NAT de VMware) | WAN del FortiGate (`.1` es el adaptador VMnet8 de la PC) |
 | **Usuarios V10** | 10 | 10.7.30.0/26 | 10.7.30.1 | Usuario con acceso restringido |
 | **Usuarios V20** | 20 | 10.7.30.64/26 | 10.7.30.65 | Usuario con acceso SSH a servidores |
 | **DMZ (Servidores)** | 30 | 10.7.30.128/28 | 10.7.30.129 | Web Caja, Web Inventario, DB |
@@ -117,7 +118,7 @@ Esta práctica segmenta una red con un **FortiGate (v7.6.2)** y un **switch**, y
 
 | Interfaz | Alias | Rol | Dirección IP | Máscara |
 |---|---|---|---|---|
-| **port1** | WAN-NUBE | WAN | 202.50.73.250 | /24 |
+| **port1** | WAN-NUBE | WAN | 202.50.73.254 | /24 |
 | **port2** | TRUNK-SW | (físico, sin IP) | — | — |
 | **VLAN10** (port2, ID 10) | LAN-VLAN10 | LAN | 10.7.30.1 | /26 |
 | **VLAN20** (port2, ID 20) | LAN-VLAN20 | LAN | 10.7.30.65 | /26 |
@@ -139,8 +140,9 @@ Esta práctica segmenta una red con un **FortiGate (v7.6.2)** y un **switch**, y
 
 | Dispositivo | IP | Máscara | Gateway | Método | Rol |
 |---|---|---|---|---|---|
-| **PC local** | 202.50.73.1 | /24 | — | Estática | ISP y acceso a la GUI del FortiGate |
-| **FortiGate** (port1) | 202.50.73.250 | /24 | 202.50.73.2 | Estática | Firewall perimetral |
+| **PC local** (adaptador VMnet8) | 202.50.73.1 | /24 | — | Automática (VMware) | Acceso a la GUI del FortiGate |
+| **ISP / NAT de VMware** | 202.50.73.2 | /24 | — | VMware | Gateway con salida a Internet |
+| **FortiGate** (port1) | 202.50.73.254 | /24 | 202.50.73.2 | Estática | Firewall perimetral |
 | **Usuario V10** | 10.7.30.10 – .60 (rango) | /26 | 10.7.30.1 | **DHCP** | Cliente VLAN 10 |
 | **Usuario V20** | 10.7.30.74 – .124 (rango) | /26 | 10.7.30.65 | **DHCP** | Cliente VLAN 20 |
 | **Web Sistema de Caja** | 10.7.30.130 | /28 | 10.7.30.129 | Estática | Servidor web |
@@ -173,17 +175,24 @@ Los pasos están en el orden en que se ejecutan. Cada uno depende de los anterio
 
 ### Paso 1. Nube PNET (ISP) y PC local
 
-Un nodo **Cloud** de PNETLab representa al ISP. Conecta `port1` del FortiGate con el adaptador virtual de la PC local, en la red pública `202.50.73.0/24`.
+La red pública del ISP es la red NAT de VMware (**VMnet8**) configurada como `202.50.73.0/24`. VMware usa dos direcciones de esa red: `202.50.73.1` (adaptador VMnet8 de la PC local, desde donde se accede a la GUI del FortiGate) y `202.50.73.2` (gateway NAT, que da salida a Internet). El FortiGate usa `202.50.73.254`. Un nodo **Cloud** de PNETLab conecta `port1` del FortiGate a esa red.
 
-**Adaptador de la PC** (el que usa la VM de PNETLab, por ejemplo VMnet8 o Host-only):
+**1.1 — Red NAT de VMware**
+
+**Ruta:** `VMware → Edit → Virtual Network Editor → Change Settings → VMnet8 (NAT)`
 
 | Campo | Valor |
 |---|---|
-| IP | `202.50.73.1` |
-| Máscara | `255.255.255.248` |
-| Gateway | *(vacío)* |
+| Subnet IP | `202.50.73.0` |
+| Subnet mask | `255.255.255.0` |
+| NAT Settings → Gateway IP | `202.50.73.2` |
+| DHCP Settings → Start IP address | `202.50.73.128` |
+| DHCP Settings → End IP address | `202.50.73.200` |
 
-**En PNETLab:**
+> El adaptador VMnet8 de la PC toma `202.50.73.1` automáticamente y no se configura a mano. El rango DHCP termina en `.200` para que la IP estática del FortiGate (`202.50.73.254`) quede fuera del rango.
+> La VM de PNETLab debe usar la red `VMnet8 (NAT)`. Si su interfaz de administración también está en VMnet8, recibe una IP nueva al cambiar la subred: reiniciar la VM y abrir PNETLab con la IP nueva.
+
+**1.2 — En PNETLab**
 
 1. Clic derecho en el área de trabajo → `Add an object → Network`.
 2. Type: `Management(Cloud0)`, nombre `Nube-PNET`.
@@ -301,7 +310,7 @@ end
 write memory
 ```
 
-> **Seguridad básica aplicada:** contraseña `enable secret` y cifrado de contraseñas, banner, `port-security` (3 MAC por puerto(para evitar errores con la conexion entre el pnet y el vmware), violación → shutdown, MAC sticky), `BPDU guard` y `portfast` en los puertos de acceso, DTP deshabilitado (`nonegotiate`), VLAN nativa del trunk distinta de la VLAN 1 (999), VLANs permitidas en el trunk limitadas a 10, 20 y 30, y puertos sin uso apagados en una VLAN sin salida.
+> **Seguridad básica aplicada:** contraseña `enable secret` y cifrado de contraseñas, banner, `port-security` (3 MAC por puerto por la conexión entre PNETLab y VMware, violación → shutdown, MAC sticky), `BPDU guard` y `portfast` en los puertos de acceso, DTP deshabilitado (`nonegotiate`), VLAN nativa del trunk distinta de la VLAN 1 (999), VLANs permitidas en el trunk limitadas a 10, 20 y 30, y puertos sin uso apagados en una VLAN sin salida.
 
 **Verificación:**
 ```bash
@@ -323,14 +332,14 @@ Desde la consola del FortiGate (script: [`scripts/fortigate-cli.txt`](scripts/fo
 config system interface
     edit "port1"
         set mode static
-        set ip 202.50.73.250 255.255.255.0
+        set ip 202.50.73.254 255.255.255.0
         set allowaccess https ssh ping
         set role wan
     next
 end
 ```
 
-Acceder desde el navegador de la PC local a `https://202.50.73.250` con las credenciales por defecto (`admin` / contraseña vacía) y definir una contraseña segura.
+Acceder desde el navegador de la PC local a `https://202.50.73.254` con las credenciales por defecto (`admin` / contraseña vacía) y definir una contraseña segura.
 
 > Ver evidencia: [02_cli_acceso_fortigate.png](screenshots/02_cli_acceso_fortigate.png)
 
@@ -338,7 +347,7 @@ Acceder desde el navegador de la PC local a `https://202.50.73.250` con las cred
 
 ### Paso 4. Interfaces, sub-interfaces VLAN y DHCP del FortiGate
 
-Todo por GUI en `https://202.50.73.2`. **Ruta:** `Network → Interfaces`
+Todo por GUI en `https://202.50.73.254`. **Ruta:** `Network → Interfaces`
 
 #### 4.1 Interfaces físicas
 
@@ -348,7 +357,7 @@ Todo por GUI en `https://202.50.73.2`. **Ruta:** `Network → Interfaces`
 |---|---|
 | Alias | `WAN-NUBE` |
 | Role | `WAN` |
-| IP/Netmask | `202.50.73.2 / 255.255.255.248` |
+| IP/Netmask | `202.50.73.254 / 255.255.255.0` |
 | Administrative access | `HTTPS, SSH, Ping` |
 
 **port2 — TRUNK-SW (físico, sin IP):**
@@ -456,7 +465,7 @@ El FortiGate usa estos servidores para resolver los nombres de los endpoints de 
 | Campo | Valor |
 |---|---|
 | Destination | `0.0.0.0/0.0.0.0` |
-| Gateway Address | `202.50.73.1` |
+| Gateway Address | `202.50.73.2` |
 | Interface | `port1 (WAN-NUBE)` |
 
 > Ver evidencia: [07_dns_ruta_fortigate.png](screenshots/07_dns_ruta_fortigate.png)
@@ -467,11 +476,22 @@ El FortiGate usa estos servidores para resolver los nombres de los endpoints de 
 
 Comprobar la red base **antes** de crear las políticas.
 
-**6.1 — PC local**
+**6.1 — PC local y salida a Internet**
+
+Desde la PC local (CMD o PowerShell):
 
 ```
-ping 202.50.73.2
+ping 202.50.73.254
 ```
+
+Desde la consola del FortiGate:
+
+```bash
+execute ping 202.50.73.2
+execute ping 8.8.8.8
+```
+
+Los tres deben responder: `202.50.73.2` es el gateway NAT de VMware y `8.8.8.8` confirma la salida a Internet.
 
 **6.2 — Usuarios (Ubuntu, por DHCP)**
 
@@ -786,13 +806,13 @@ Numeradas en el orden en que se toman durante el procedimiento.
 | # | Archivo | Paso | Descripción |
 |---|---|---|---|
 | 01 | [`01_switch_vlan_seguridad.png`](screenshots/01_switch_vlan_seguridad.png) | 2 | SW-LAN: `show vlan brief`, `show interfaces trunk` y `show port-security`. |
-| 02 | [`02_cli_acceso_fortigate.png`](screenshots/02_cli_acceso_fortigate.png) | 3 | CLI del FortiGate con la config inicial de `port1` (202.50.73.2/29). |
+| 02 | [`02_cli_acceso_fortigate.png`](screenshots/02_cli_acceso_fortigate.png) | 3 | CLI del FortiGate con la config inicial de `port1` (202.50.73.254/24). |
 | 03 | [`03_interfaces_fortigate.png`](screenshots/03_interfaces_fortigate.png) | 4 | `Network → Interfaces`: port1, port2 y las sub-interfaces VLAN10, VLAN20 y VLAN30. |
 | 04 | [`04_vlan10_dhcp_fortigate.png`](screenshots/04_vlan10_dhcp_fortigate.png) | 4.2 | Sub-interfaz VLAN10 con IP `10.7.30.1/26` y su DHCP. |
 | 05 | [`05_vlan20_dhcp_fortigate.png`](screenshots/05_vlan20_dhcp_fortigate.png) | 4.3 | Sub-interfaz VLAN20 con IP `10.7.30.65/26` y su DHCP. |
 | 06 | [`06_vlan30_dmz_fortigate.png`](screenshots/06_vlan30_dmz_fortigate.png) | 4.4 | Sub-interfaz VLAN30 (DMZ) con IP `10.7.30.129/28` y el servicio DNS. |
-| 07 | [`07_dns_ruta_fortigate.png`](screenshots/07_dns_ruta_fortigate.png) | 5 | DNS y ruta por defecto hacia `202.50.73.1`. |
-| 08 | [`08_ping_nube.png`](screenshots/08_ping_nube.png) | 6.1 | Ping desde la PC local a `202.50.73.2`. |
+| 07 | [`07_dns_ruta_fortigate.png`](screenshots/07_dns_ruta_fortigate.png) | 5 | DNS y ruta por defecto hacia `202.50.73.2`. |
+| 08 | [`08_ping_nube.png`](screenshots/08_ping_nube.png) | 6.1 | Ping de la PC local al FortiGate y ping del FortiGate a `8.8.8.8`. |
 | 09 | [`09_usuarios_dhcp.png`](screenshots/09_usuarios_dhcp.png) | 6.2 | Usuarios V10 y V20 con IP por DHCP y ping a su gateway. |
 | 10 | [`10_servidores_red.png`](screenshots/10_servidores_red.png) | 6.3 | Servidores con IP estática y ping a `10.7.30.129`. |
 | 11 | [`11_endpoints_apt.png`](screenshots/11_endpoints_apt.png) | 7 | Hosts de los repositorios de actualización de un servidor. |
