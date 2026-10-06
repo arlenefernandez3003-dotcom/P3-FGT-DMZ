@@ -1,0 +1,29 @@
+enable
+configure terminal
+
+hostname SW-LAN
+no ip domain-lookup
+service password-encryption
+enable secret Lab12345
+banner motd # Acceso restringido. Solo personal autorizado. #
+
+vlan 10
+ name USUARIOS-V10
+vlan 20
+ name USUARIOS-V20
+vlan 30
+ name DMZ
+vlan 999
+ name BLACKHOLE
+exit
+
+spanning-tree mode rapid-pvst
+spanning-tree portfast default
+spanning-tree portfast bpduguard default
+
+line con 0
+ logging synchronous
+ exec-timeout 10 0
+exit
+
+end
