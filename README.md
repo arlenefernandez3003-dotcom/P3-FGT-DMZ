@@ -250,7 +250,7 @@ interface range Ethernet0/1 - 3 , Ethernet1/0 - 1
  switchport mode access
  switchport nonegotiate
  switchport port-security
- switchport port-security maximum 1
+ switchport port-security maximum 3
  switchport port-security violation shutdown
  switchport port-security mac-address sticky
  spanning-tree bpduguard enable
@@ -301,7 +301,7 @@ end
 write memory
 ```
 
-> **Seguridad básica aplicada:** contraseña `enable secret` y cifrado de contraseñas, banner, `port-security` (1 MAC por puerto, violación → shutdown, MAC sticky), `BPDU guard` y `portfast` en los puertos de acceso, DTP deshabilitado (`nonegotiate`), VLAN nativa del trunk distinta de la VLAN 1 (999), VLANs permitidas en el trunk limitadas a 10, 20 y 30, y puertos sin uso apagados en una VLAN sin salida.
+> **Seguridad básica aplicada:** contraseña `enable secret` y cifrado de contraseñas, banner, `port-security` (3 MAC por puerto(para evitar errores con la conexion entre el pnet y el vmware), violación → shutdown, MAC sticky), `BPDU guard` y `portfast` en los puertos de acceso, DTP deshabilitado (`nonegotiate`), VLAN nativa del trunk distinta de la VLAN 1 (999), VLANs permitidas en el trunk limitadas a 10, 20 y 30, y puertos sin uso apagados en una VLAN sin salida.
 
 **Verificación:**
 ```bash
