@@ -323,14 +323,14 @@ Desde la consola del FortiGate (script: [`scripts/fortigate-cli.txt`](scripts/fo
 config system interface
     edit "port1"
         set mode static
-        set ip 202.50.73.2 255.255.255.248
+        set ip 202.50.73.250 255.255.255.0
         set allowaccess https ssh ping
         set role wan
     next
 end
 ```
 
-Acceder desde el navegador de la PC local a `https://202.50.73.2` con las credenciales por defecto (`admin` / contraseña vacía) y definir una contraseña segura.
+Acceder desde el navegador de la PC local a `https://202.50.73.250` con las credenciales por defecto (`admin` / contraseña vacía) y definir una contraseña segura.
 
 > Ver evidencia: [02_cli_acceso_fortigate.png](screenshots/02_cli_acceso_fortigate.png)
 
