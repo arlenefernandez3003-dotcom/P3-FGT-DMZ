@@ -60,12 +60,12 @@ Esta práctica segmenta una red con un **FortiGate (v7.6.2)** y un **switch**, y
 ```
                       ┌───────────────────────────┐
    PC local ──────────┤   Nube PNET (ISP / Cloud) │
-   202.50.73.1        │       202.50.73.0/29      │
+   202.50.73.1        │       202.50.73.0/24      │
                       └─────────────┬─────────────┘
                                     │
                     ┌───────────────┴───────────────┐
                     │           FortiGate           │
-                    │ port1 (WAN)   202.50.73.2/29  │
+                    │ port1 (WAN)  202.50.73.250/29 │
                     │ port2 (trunk, sub-interfaces) │
                     │  ├ VLAN10  10.7.30.1/26       │
                     │  ├ VLAN20  10.7.30.65/26      │
@@ -97,7 +97,7 @@ Esta práctica segmenta una red con un **FortiGate (v7.6.2)** y un **switch**, y
 
 | Red | VLAN | Dirección | Gateway (FortiGate) | Uso |
 |---|---|---|---|---|
-| **ISP (pública)** | — | 202.50.73.0/29 | 202.50.73.1 (ISP) | WAN del FortiGate |
+| **ISP (pública)** | — | 202.50.73.0/24 | 202.50.73.2 (ISP) | WAN del FortiGate |
 | **Usuarios V10** | 10 | 10.7.30.0/26 | 10.7.30.1 | Usuario con acceso restringido |
 | **Usuarios V20** | 20 | 10.7.30.64/26 | 10.7.30.65 | Usuario con acceso SSH a servidores |
 | **DMZ (Servidores)** | 30 | 10.7.30.128/28 | 10.7.30.129 | Web Caja, Web Inventario, DB |
@@ -117,7 +117,7 @@ Esta práctica segmenta una red con un **FortiGate (v7.6.2)** y un **switch**, y
 
 | Interfaz | Alias | Rol | Dirección IP | Máscara |
 |---|---|---|---|---|
-| **port1** | WAN-NUBE | WAN | 202.50.73.2 | /29 |
+| **port1** | WAN-NUBE | WAN | 202.50.73.250 | /24 |
 | **port2** | TRUNK-SW | (físico, sin IP) | — | — |
 | **VLAN10** (port2, ID 10) | LAN-VLAN10 | LAN | 10.7.30.1 | /26 |
 | **VLAN20** (port2, ID 20) | LAN-VLAN20 | LAN | 10.7.30.65 | /26 |
@@ -139,8 +139,8 @@ Esta práctica segmenta una red con un **FortiGate (v7.6.2)** y un **switch**, y
 
 | Dispositivo | IP | Máscara | Gateway | Método | Rol |
 |---|---|---|---|---|---|
-| **PC local** | 202.50.73.1 | /29 | — | Estática | ISP y acceso a la GUI del FortiGate |
-| **FortiGate** (port1) | 202.50.73.2 | /29 | 202.50.73.1 | Estática | Firewall perimetral |
+| **PC local** | 202.50.73.1 | /24 | — | Estática | ISP y acceso a la GUI del FortiGate |
+| **FortiGate** (port1) | 202.50.73.250 | /24 | 202.50.73.2 | Estática | Firewall perimetral |
 | **Usuario V10** | 10.7.30.10 – .60 (rango) | /26 | 10.7.30.1 | **DHCP** | Cliente VLAN 10 |
 | **Usuario V20** | 10.7.30.74 – .124 (rango) | /26 | 10.7.30.65 | **DHCP** | Cliente VLAN 20 |
 | **Web Sistema de Caja** | 10.7.30.130 | /28 | 10.7.30.129 | Estática | Servidor web |
@@ -173,7 +173,7 @@ Los pasos están en el orden en que se ejecutan. Cada uno depende de los anterio
 
 ### Paso 1. Nube PNET (ISP) y PC local
 
-Un nodo **Cloud** de PNETLab representa al ISP. Conecta `port1` del FortiGate con el adaptador virtual de la PC local, en la red pública `202.50.73.0/29`. La PC local (`202.50.73.1`) hace de gateway del ISP y accede a la GUI del FortiGate.
+Un nodo **Cloud** de PNETLab representa al ISP. Conecta `port1` del FortiGate con el adaptador virtual de la PC local, en la red pública `202.50.73.0/24`.
 
 **Adaptador de la PC** (el que usa la VM de PNETLab, por ejemplo VMnet8 o Host-only):
 
