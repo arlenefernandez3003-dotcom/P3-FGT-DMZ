@@ -6,3 +6,26 @@ config system interface
         set role wan
     next
 end
+
+
+
+
+
+
+config system interface
+    edit "VLAN30"
+        set mtu-override enable
+        set mtu 1480
+        set tcp-mss 1440
+    next
+    edit "VLAN10"
+        set mtu-override enable
+        set mtu 1480
+        set tcp-mss 1440
+    next
+    edit "VLAN20"
+        set mtu-override enable
+        set mtu 1480
+        set tcp-mss 1440
+    next
+end
