@@ -575,7 +575,6 @@ Anotar los nombres de host que aparecen (por ejemplo `archive.ubuntu.com` y `sec
 | `Srv-DB` | Subnet | `10.7.30.133/32` |
 | `FQDN-Ubuntu-Archive` | FQDN | `archive.ubuntu.com` |
 | `FQDN-Ubuntu-Security` | FQDN | `security.ubuntu.com` |
-| `FQDN-Ubuntu-Security` | FQDN | `security.ubuntu.com` |
 | `FQDN-Ubuntu-DO-Archive` | FQDN | `do.archive.ubuntu.com` |
 
 Si en el Paso 7 apareció otro nombre de host, crear también su objeto FQDN.
