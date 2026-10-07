@@ -769,7 +769,7 @@ curl -s http://10.7.30.131/ | grep -o '<title>.*</title>'   # Web Caja: <title>S
 En el navegador, abrir `http://10.7.30.131/` (Web Caja): se ve la página del Sistema de Caja con la materia y el nombre de la estudiante. Luego abrir `http://10.7.30.132/` (Web Inventario): se muestra la **página de bloqueo del FortiGate** indicando que se violó una política.
 
 ```bash
-ssh usuario@10.7.30.131              # SSH: debe fallar (sin respuesta)
+ssh web-caja@10.7.30.131              # SSH: debe fallar (sin respuesta)
 ```
 
 > Ver evidencia: [18_web_vlan10_caja.png](screenshots/18_web_vlan10_caja.png), [19_bloqueo_inventario_vlan10.png](screenshots/19_bloqueo_inventario_vlan10.png), [20_ssh_vlan10_fallo.png](screenshots/20_ssh_vlan10_fallo.png)
@@ -777,9 +777,9 @@ ssh usuario@10.7.30.131              # SSH: debe fallar (sin respuesta)
 **12.2 — Usuario VLAN 20 (único con SSH)**
 
 ```bash
-ssh usuario@10.7.30.131
-ssh usuario@10.7.30.132
-ssh usuario@10.7.30.133
+ssh web-caja@10.7.30.131
+ssh web-inventario@10.7.30.132
+ssh db-server@10.7.30.133
 curl -s http://10.7.30.132/ | grep -o '<title>.*</title>'   # Web Inventario: <title>Sistema de Inventario</title>
 traceroute 10.7.30.131
 ping -c 3 10.7.30.10               # hacia la VLAN 10: debe fallar
