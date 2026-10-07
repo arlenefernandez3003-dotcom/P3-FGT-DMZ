@@ -1,0 +1,149 @@
+Current configuration : 3313 bytes
+!
+! Last configuration change at 22:40:48 UTC Wed Oct 7 2026
+!
+version 15.2
+service timestamps debug datetime msec
+service timestamps log datetime msec
+service password-encryption
+service compress-config
+!
+hostname SW-LAN
+!
+boot-start-marker
+boot-end-marker
+!
+!
+enable secret 5 $1$CAa6$vSyywolFaEMZrRJEyOXU5/
+!
+no aaa new-model
+!
+!
+!
+!
+!
+!
+!
+!
+no ip domain-lookup
+ip cef
+no ipv6 cef
+!
+!
+!
+spanning-tree mode rapid-pvst
+spanning-tree portfast edge default
+spanning-tree portfast edge bpduguard default
+spanning-tree extend system-id
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+interface Ethernet0/0
+ description Trunk hacia FortiGate port2
+ switchport trunk allowed vlan 10,20,30
+ switchport trunk encapsulation dot1q
+ switchport trunk native vlan 999
+ switchport mode trunk
+ switchport nonegotiate
+!
+interface Ethernet0/1
+ description Usuario V10
+ switchport access vlan 10
+ switchport mode access
+ switchport nonegotiate
+ switchport port-security maximum 3
+ switchport port-security mac-address sticky
+ switchport port-security mac-address sticky 000c.2996.8d2e
+ switchport port-security
+ spanning-tree bpduguard enable
+!
+interface Ethernet0/2
+ description Usuario V20
+ switchport access vlan 20
+ switchport mode access
+ switchport nonegotiate
+ switchport port-security maximum 3
+ switchport port-security mac-address sticky
+ switchport port-security mac-address sticky 000c.2964.dce5
+ switchport port-security
+ spanning-tree bpduguard enable
+!
+interface Ethernet0/3
+ description Web Server - Sistema de Caja
+ switchport access vlan 30
+ switchport mode access
+ switchport nonegotiate
+ switchport port-security maximum 3
+ switchport port-security mac-address sticky
+ switchport port-security mac-address sticky aabb.cc00.0101
+ spanning-tree bpduguard enable
+!
+interface Ethernet1/0
+ description Sin uso
+ switchport access vlan 30
+ switchport mode access
+ switchport nonegotiate
+ switchport port-security maximum 3
+ switchport port-security mac-address sticky
+ switchport port-security mac-address sticky aabb.cc00.0130
+ spanning-tree bpduguard enable
+!
+interface Ethernet1/1
+ description Sin uso
+ switchport access vlan 30
+ switchport mode access
+ switchport nonegotiate
+ switchport port-security maximum 3
+ switchport port-security mac-address sticky
+ switchport port-security mac-address sticky 000c.295a.ae0f
+ spanning-tree bpduguard enable
+!
+interface Ethernet1/2
+ description Puerto sin uso
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface Ethernet1/3
+ description Puerto sin uso
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+ip forward-protocol nd
+!
+ip http server
+ip http secure-server
+!
+ip ssh server algorithm encryption aes128-ctr aes192-ctr aes256-ctr
+ip ssh client algorithm encryption aes128-ctr aes192-ctr aes256-ctr
+!
+!
+!
+!
+!
+control-plane
+!
+banner motd ^C Acceso restringido. Solo personal autorizado. ^C
+!
+line con 0
+ logging synchronous
+line aux 0
+line vty 0 4
+ login
+!
+!
+!
+end
