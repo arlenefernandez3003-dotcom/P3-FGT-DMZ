@@ -75,14 +75,15 @@ Esta práctica segmenta una red con un **FortiGate (v7.0.3)** y un **switch**, y
                                     │ trunk 802.1Q · VLAN 10, 20, 30
                     ┌───────────────┴───────────────┐
                     │            SW-LAN             │
-                    └─┬─────┬─────┬─────┬─────┬─────┘
-                      │     │     │     │     │
-                    e0/1  e0/2  e0/3  e1/0  e1/1
-                      │     │     │     │     │
-                    U-V10 U-V20 Caja  Inv.  DB
-                                └ DMZ VLAN 30 ┘
+                    └─┬─────┬─────┬─────────────────┘
+                      │     │     │
+                    e0/1  e0/2  e0/3
+                      │     │     │
+                    U-V10 U-V20 Servidores
+                                Caja · Inv. · DB
+                                (DMZ, VLAN 30)
 
-  U-V10 / U-V20 = Usuarios · Caja / Inv. = Web Servers · DB = DB Server
+  U-V10 / U-V20 = Usuarios · Servidores = Web Caja, Web Inventario y DB Server (un solo enlace)
 
   Política de comunicación:
   ┌───────────────────────────────────────────────────────────────────┐
@@ -133,10 +134,8 @@ Esta práctica segmenta una red con un **FortiGate (v7.0.3)** y un **switch**, y
 | **e0/0** | Trunk (802.1Q) | 10, 20, 30 (nativa 999) | FortiGate `port2` |
 | **e0/1** | Access | 10 | Usuario V10 |
 | **e0/2** | Access | 20 | Usuario V20 |
-| **e0/3** | Access | 30 | Web Server Sistema de Caja |
-| **e1/0** | Access | 30 | Web Server Sistema de Inventario |
-| **e1/1** | Access | 30 | DB Server |
-| **e1/2 – e1/3** | Apagados | 999 | Sin uso |
+| **e0/3** | Access | 30 | Servidores DMZ: Web Caja, Web Inventario y DB Server (un solo enlace) |
+| **e1/0 – e1/3** | Apagados | 999 | Sin uso |
 
 ### 2.4 Tabla de Dispositivos
 
@@ -200,7 +199,9 @@ La red pública del ISP es la red NAT de VMware (**VMnet8**) configurada como `2
 2. Type: `Management(Cloud0)`, nombre `Nube-PNET`.
 3. Conectar `port1` del FortiGate a `Nube-PNET`.
 4. Conectar `port2` del FortiGate a `e0/0` de `SW-LAN`.
-5. Conectar al switch: `e0/1` → Usuario V10, `e0/2` → Usuario V20, `e0/3` → Web Caja, `e1/0` → Web Inventario, `e1/1` → DB Server.
+5. Conectar al switch: `e0/1` → Usuario V10, `e0/2` → Usuario V20 y `e0/3` → red de los servidores. Los tres servidores (Web Caja, Web Inventario y DB Server) comparten una misma red virtual, conectada a `e0/3` con **un solo cable**; `e1/0` – `e1/3` quedan sin cable.
+
+> Un solo enlace evita un bucle de capa 2: si varios puertos del switch se conectan al mismo segmento, las tramas y las BPDU regresan al switch y los puertos caen por BPDU Guard y port-security.
 
 ---
 
@@ -257,7 +258,7 @@ interface Ethernet0/0
  no shutdown
 exit
 
-interface range Ethernet0/1 - 3 , Ethernet1/0 - 1
+interface range Ethernet0/1 - 3
  switchport mode access
  switchport nonegotiate
  switchport port-security
@@ -279,18 +280,9 @@ interface Ethernet0/2
 exit
 
 interface Ethernet0/3
- description Web Server - Sistema de Caja
+ description Servidores DMZ (Web Caja, Web Inventario y DB Server)
  switchport access vlan 30
-exit
-
-interface Ethernet1/0
- description Web Server - Sistema de Inventario
- switchport access vlan 30
-exit
-
-interface Ethernet1/1
- description DB Server
- switchport access vlan 30
+ switchport port-security maximum 5
 exit
 
 end
@@ -301,7 +293,7 @@ end
 ```bash
 configure terminal
 
-interface range Ethernet1/2 - 3
+interface range Ethernet1/0 - 3
  description Puerto sin uso
  switchport mode access
  switchport access vlan 999
@@ -312,7 +304,7 @@ end
 write memory
 ```
 
-> **Seguridad básica aplicada:** contraseña `enable secret` y cifrado de contraseñas, banner, `port-security` (3 MAC por puerto por la conexión entre PNETLab y VMware, violación → shutdown, MAC sticky), `BPDU guard` y `portfast` en los puertos de acceso, DTP deshabilitado (`nonegotiate`), VLAN nativa del trunk distinta de la VLAN 1 (999), VLANs permitidas en el trunk limitadas a 10, 20 y 30, y puertos sin uso apagados en una VLAN sin salida.
+> **Seguridad básica aplicada:** contraseña `enable secret` y cifrado de contraseñas, banner, `port-security` (3 MAC por puerto y 5 en el puerto de los servidores, por la conexión entre PNETLab y VMware, violación → shutdown, MAC sticky), `BPDU guard` y `portfast` en los puertos de acceso, DTP deshabilitado (`nonegotiate`), VLAN nativa del trunk distinta de la VLAN 1 (999), VLANs permitidas en el trunk limitadas a 10, 20 y 30, y puertos sin uso apagados en una VLAN sin salida.
 
 **Verificación:**
 ```bash
@@ -450,6 +442,47 @@ Después, crear el servicio DNS en la interfaz:
 | DNS Filter | Desactivado |
 | DNS over HTTPS | Desactivado |
 
+#### 4.5 MTU y MSS de las sub-interfaces
+
+> **Nota técnica:** en PNETLab sobre VMware, los paquetes IP de 1500 bytes no pasan entre los equipos y el FortiGate por el trunk: un `ping` con el bit DF y 1472 bytes de datos falla, y uno de 1460 pasa. Los paquetes pequeños sí pasan (ping, `curl -I`), pero las descargas grandes, como `apt update`, se congelan esperando las cabeceras. Se corrige bajando el MTU de las tres sub-interfaces y fijando el MSS TCP en el FortiGate, y con un MTU de 1460 en los servidores (Paso 6.3).
+
+**MTU — Ruta:** `Network → Interfaces → VLAN10 / VLAN20 / VLAN30 → Edit` → activar **Override default MTU value** y escribir `1480`.
+
+El MSS TCP no tiene campo en la GUI y se fija desde la consola del FortiGate, junto con el MTU, en un solo bloque (script: [`scripts/fortigate-cli.txt`](scripts/fortigate-cli.txt)):
+
+```bash
+config system interface
+    edit "VLAN30"
+        set mtu-override enable
+        set mtu 1480
+        set tcp-mss 1440
+    next
+    edit "VLAN10"
+        set mtu-override enable
+        set mtu 1480
+        set tcp-mss 1440
+    next
+    edit "VLAN20"
+        set mtu-override enable
+        set mtu 1480
+        set tcp-mss 1440
+    next
+end
+```
+
+Para que las conexiones ya abiertas usen el nuevo tamaño, se limpia la tabla de sesiones una sola vez:
+
+```bash
+diagnose sys session clear
+```
+
+**Verificación:**
+```bash
+show full-configuration system interface VLAN30 | grep mtu
+show full-configuration system interface VLAN30 | grep tcp-mss
+```
+Debe mostrar `set mtu-override enable`, `set mtu 1480` y `set tcp-mss 1440` en las tres sub-interfaces. Las capturas de las sub-interfaces de este paso muestran el MTU.
+
 > Ver evidencia: [03_interfaces_fortigate.png](screenshots/03_interfaces_fortigate.png), [04_vlan10_dhcp_fortigate.png](screenshots/04_vlan10_dhcp_fortigate.png), [05_vlan20_dhcp_fortigate.png](screenshots/05_vlan20_dhcp_fortigate.png), [06_vlan30_dmz_fortigate.png](screenshots/06_vlan30_dmz_fortigate.png)
 
 ---
@@ -524,6 +557,7 @@ network:
   version: 2
   ethernets:
     ens3:
+      mtu: 1460
       addresses: [10.7.30.131/28]
       routes:
         - to: default
@@ -538,9 +572,13 @@ network:
 | Web Sistema de Inventario | `10.7.30.132/28` |
 | DB Server | `10.7.30.133/28` |
 
+> El servidor debe tener activa solo la interfaz conectada a la DMZ: si la VM tiene otra interfaz por DHCP, se apaga para que todo el tráfico salga por el FortiGate. El `mtu: 1460` es obligatorio (ver la nota técnica del Paso 4.5).
+
 ```bash
 sudo netplan apply
+ip link show ens3 | grep -o 'mtu [0-9]*'   # debe mostrar mtu 1460
 ping -c 3 10.7.30.130
+ping -c 3 -M do -s 1432 10.7.30.130        # 1432 + 28 = 1460: debe pasar sin fragmentar
 ```
 
 > Ver evidencia: [08_ping_nube.png](screenshots/08_ping_nube.png), [09_usuarios_dhcp.png](screenshots/09_usuarios_dhcp.png), [10_servidores_red.png](screenshots/10_servidores_red.png)
@@ -584,7 +622,7 @@ Si en el Paso 7 apareció otro nombre de host, crear también su objeto FQDN.
 | Nombre | Miembros |
 |---|---|
 | `Servidores-Web` | `Srv-Caja`, `Srv-Inventario` |
-| `Endpoints-Actualizacion` | `FQDN-Ubuntu-Archive`, `FQDN-Ubuntu-Security`, `FQDN-Ubuntu-DO-Archive`|
+| `Endpoints-Actualizacion` | `FQDN-Ubuntu-Archive`, `FQDN-Ubuntu-Security`, `FQDN-Ubuntu-DO-Archive` |
 
 > Ver evidencia: [12_objetos_direcciones.png](screenshots/12_objetos_direcciones.png)
 
@@ -647,6 +685,14 @@ El orden en la lista importa: el FortiGate evalúa las políticas de arriba haci
 ### Paso 11. Servicios en los servidores
 
 Con la política `DMZ-Actualizaciones` activa, los servidores pueden instalar paquetes desde los repositorios permitidos.
+
+**Comprobación previa de descargas grandes** (desde cada servidor):
+
+```bash
+curl -m 15 -o /dev/null -w "%{http_code} %{size_download} bytes %{time_total}s\n" http://archive.ubuntu.com/ubuntu/dists/noble/InRelease
+```
+
+Debe devolver `200` y descargar el archivo completo (unos 250 KB) en pocos segundos. Si se queda en unos 2500 bytes y da timeout, revisar el MTU del FortiGate (Paso 4.5) y el de los servidores (Paso 6.3).
 
 Los dos servidores web publican una página que identifica la **materia**, la **institución** y la **estudiante**. Son páginas de demostración con **fines académicos**: no son sistemas reales de caja ni de inventario, y solo sirven para identificar cada servidor durante las pruebas. Usan HTML y CSS en línea, sin recursos externos, porque la DMZ no tiene acceso libre a Internet.
 
@@ -769,7 +815,7 @@ curl -s http://10.7.30.131/ | grep -o '<title>.*</title>'   # Web Caja: <title>S
 En el navegador, abrir `http://10.7.30.131/` (Web Caja): se ve la página del Sistema de Caja con la materia y el nombre de la estudiante. Luego abrir `http://10.7.30.132/` (Web Inventario): se muestra la **página de bloqueo del FortiGate** indicando que se violó una política.
 
 ```bash
-ssh web-caja@10.7.30.131              # SSH: debe fallar (sin respuesta)
+ssh web-server@10.7.30.131              # SSH: debe fallar (sin respuesta)
 ```
 
 > Ver evidencia: [18_web_vlan10_caja.png](screenshots/18_web_vlan10_caja.png), [19_bloqueo_inventario_vlan10.png](screenshots/19_bloqueo_inventario_vlan10.png), [20_ssh_vlan10_fallo.png](screenshots/20_ssh_vlan10_fallo.png)
@@ -852,7 +898,7 @@ Numeradas en el orden en que se toman durante el procedimiento.
 ├── screenshots/               ← capturas numeradas de cada configuración
 ├── scripts/
 │   ├── sw-lan.txt             ← switch: VLANs, trunk, port-security y seguridad básica
-│   ├── fortigate-cli.txt      ← acceso inicial del FortiGate
+│   ├── fortigate-cli.txt      ← acceso inicial y MTU/MSS del FortiGate
 │   ├── servidor-caja.sh       ← Web Sistema de Caja (Apache + SSH)
 │   ├── servidor-inventario.sh ← Web Sistema de Inventario (Apache + SSH)
 │   └── servidor-db.sh         ← DB Server (MariaDB + SSH)
@@ -860,3 +906,5 @@ Numeradas en el orden en que se toman durante el procedimiento.
 │   ├── sw-lan-running-config.txt
 │   └── fortigate-running-config.conf
 ```
+
+> Ajustar el número de práctica (`P6`) según lo indicado por el profesor. El video debe subirse al principio del repositorio (enlace colocado arriba en este README).
