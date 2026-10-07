@@ -575,15 +575,17 @@ Anotar los nombres de host que aparecen (por ejemplo `archive.ubuntu.com` y `sec
 | `Srv-DB` | Subnet | `10.7.30.133/32` |
 | `FQDN-Ubuntu-Archive` | FQDN | `archive.ubuntu.com` |
 | `FQDN-Ubuntu-Security` | FQDN | `security.ubuntu.com` |
+| `FQDN-Ubuntu-Security` | FQDN | `security.ubuntu.com` |
+| `FQDN-Ubuntu-DO-Archive` | FQDN | `do.archive.ubuntu.com` |
 
-Si en el Paso 7 apareció otro nombre de host (por ejemplo un espejo regional), crear también su objeto FQDN.
+Si en el Paso 7 apareció otro nombre de host, crear también su objeto FQDN.
 
 **Grupos de direcciones** — `Policy & Objects → Addresses → Create New → Address Group`:
 
 | Nombre | Miembros |
 |---|---|
 | `Servidores-Web` | `Srv-Caja`, `Srv-Inventario` |
-| `Endpoints-Actualizacion` | `FQDN-Ubuntu-Archive`, `FQDN-Ubuntu-Security` (y los de otros endpoints del Paso 7) |
+| `Endpoints-Actualizacion` | `FQDN-Ubuntu-Archive`, `FQDN-Ubuntu-Security`, `FQDN-Ubuntu-DO-Archive`|
 
 > Ver evidencia: [12_objetos_direcciones.png](screenshots/12_objetos_direcciones.png)
 
