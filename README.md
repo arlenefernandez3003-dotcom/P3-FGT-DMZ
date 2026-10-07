@@ -859,8 +859,4 @@ Numeradas en el orden en que se toman durante el procedimiento.
 ├── running-configs/
 │   ├── sw-lan-running-config.txt
 │   └── fortigate-running-config.conf
-└── entregable/
-    └── ArleneFernandez_20250730_P6.txt
 ```
-
-> Ajustar el número de práctica (`P6`) según lo indicado por el profesor. El video debe subirse al principio del repositorio (enlace colocado arriba en este README).
